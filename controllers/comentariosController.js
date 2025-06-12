@@ -31,11 +31,10 @@ exports.obtenerComentariosPorUsuario = (req, res) => {
   const { id_usuario } = req.params;
 
   db.query(
-    `SELECT c.*, f.titulo AS titulo_foto 
-     FROM comentarios c 
-     JOIN fotos f ON c.id_foto = f.id_foto 
-     WHERE c.id_usuario = ? 
-     ORDER BY c.fecha DESC`,
+    `SELECT id_comentario, id_foto, contenido, fecha
+     FROM comentarios
+     WHERE id_usuario = ?
+     ORDER BY fecha DESC`,
     [id_usuario],
     (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -43,3 +42,4 @@ exports.obtenerComentariosPorUsuario = (req, res) => {
     }
   );
 };
+
