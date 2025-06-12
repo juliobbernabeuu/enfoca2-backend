@@ -26,3 +26,20 @@ exports.obtenerComentarios = (req, res) => {
     }
   );
 };
+
+exports.obtenerComentariosPorUsuario = (req, res) => {
+  const { id_usuario } = req.params;
+
+  db.query(
+    `SELECT c.*, f.titulo AS titulo_foto 
+     FROM comentarios c 
+     JOIN fotos f ON c.id_foto = f.id_foto 
+     WHERE c.id_usuario = ? 
+     ORDER BY c.fecha DESC`,
+    [id_usuario],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
+};
