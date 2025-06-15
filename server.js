@@ -2,7 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
+const uploadsDir = path.join(__dirname, 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('Carpeta uploads creada automáticamente');
+}
 dotenv.config();
 
 const app = express();
@@ -11,7 +18,7 @@ app.use(express.json());
 
 const puerto = process.env.PORT || 3000;
 
-app.use('/galeria', express.static(path.join(__dirname, 'uploads')));
+app.use('/galeria', express.static(uploadsDir));
 
 app.use('/api/auth', require('./routes/auth.js'));
 app.use('/api/fotos', require('./routes/fotos.js'));
