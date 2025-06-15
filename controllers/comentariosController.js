@@ -30,6 +30,11 @@ exports.obtenerComentarios = (req, res) => {
 exports.obtenerComentariosPorUsuario = (req, res) => {
   const { id_usuario } = req.params;
 
+  // Validación básica
+  if (!id_usuario || isNaN(id_usuario)) {
+    return res.status(400).json({ error: 'ID de usuario no válido.' });
+  }
+
   db.query(
     `SELECT id_comentario, id_foto, contenido, fecha
      FROM comentarios
@@ -37,9 +42,14 @@ exports.obtenerComentariosPorUsuario = (req, res) => {
      ORDER BY fecha DESC`,
     [id_usuario],
     (err, results) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(results);
+      if (err) {
+        console.error('Error al obtener comentarios por usuario:', err); // Log útil
+        return res.status(500).json({ error: 'Error al obtener comentarios del usuario.' });
+      }
+
+      res.json(results || []);
     }
   );
 };
+
 
