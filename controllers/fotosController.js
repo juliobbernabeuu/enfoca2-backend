@@ -1,49 +1,5 @@
 const db = require("../config/db.js");
-const path = require('path');
-const multer = require('multer');
 const { enviarCorreo } = require('../utils/correoUtils.js');
-
-// Configuración de multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../enfoca2-frontend/public/galeria'));
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname); // Reemplaza si quieres con timestamp o hash
-  }
-});
-const upload = multer({ storage });
-exports.upload = upload.single('archivo');
-
-// Subir foto
-exports.subirFoto = (req, res) => {
-  const { id_usuario } = req.usuario;
-  const { id_categoria, titulo, descargable, localizacion_nombre, precio } = req.body;
-
-  // Validaciones de seguridad
-  if (!req.file) {
-    return res.status(400).json({ error: 'No se subió ningún archivo.' });
-  }
-  if (!id_usuario || !id_categoria || !titulo) {
-    return res.status(400).json({ error: 'Faltan datos requeridos.' });
-  }
-
-  const url = `/galeria/${req.file.filename}`;
-
-  db.query(
-    `INSERT INTO fotografias 
-     (id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio],
-    (err, result) => {
-      if (err) {
-        console.error('Error en la subida:', err);
-        return res.status(500).json({ error: err.message });
-      }
-      res.json({ mensaje: "Foto subida con éxito" });
-    }
-  );
-};
 
 // Eliminar foto
 exports.eliminarFoto = (req, res) => {
@@ -54,7 +10,7 @@ exports.eliminarFoto = (req, res) => {
       f.titulo, 
       f.url, 
       u.email, 
-      u.nombre AS nombre_usuario
+      u.nombre
     FROM fotografias f
     JOIN usuarios u ON f.id_usuario = u.id_usuario
     WHERE f.id_foto = ?
@@ -73,12 +29,14 @@ exports.eliminarFoto = (req, res) => {
     const { email, nombre_usuario, titulo } = result[0];
 
     const sqlDelete = 'DELETE FROM fotografias WHERE id_foto = ?';
+
     db.query(sqlDelete, [idFoto], (err2) => {
       if (err2) {
         console.error('Error al eliminar la foto:', err2);
         return res.status(500).json({ error: 'Error al eliminar la foto' });
       }
 
+      // Enviar correo de notificación
       enviarCorreo(
         email,
         'Tu foto ha sido eliminada',
@@ -90,7 +48,8 @@ exports.eliminarFoto = (req, res) => {
   });
 };
 
-// Otros endpoints...
+
+// Obtener todas las fotos
 exports.obtenerFotos = (req, res) => {
   db.query("SELECT * FROM fotografias", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -98,16 +57,60 @@ exports.obtenerFotos = (req, res) => {
   });
 };
 
+// Obtener foto por ID
 exports.obtenerFotoPorId = (req, res) => {
   const { id } = req.params;
-  db.query("SELECT * FROM fotografias WHERE id_foto = ?", [id], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (result.length === 0)
-      return res.status(404).json({ error: "Foto no encontrada" });
-    res.json(result[0]);
-  });
+  db.query(
+    "SELECT * FROM fotografias WHERE id_foto = ?",
+    [id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (result.length === 0)
+        return res.status(404).json({ error: "Foto no encontrada" });
+      res.json(result[0]);
+    }
+  );
 };
 
+const path = require('path');
+const multer = require('multer');
+
+// Configuración de multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../../enfoca2-frontend/public/galeria'));
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname); // Puedes poner un hash o timestamp si quieres evitar colisiones
+  }
+});
+
+const upload = multer({ storage });
+
+// Añade este export al final del archivo para usar en la ruta
+exports.upload = upload.single('archivo');
+
+// La lógica principal
+exports.subirFoto = (req, res) => {
+  const { id_usuario } = req.usuario;
+  const { id_categoria, titulo, descargable, localizacion_nombre, precio } = req.body;
+  const url = `/galeria/${req.file.filename}`;
+
+  db.query(
+    `INSERT INTO fotografias 
+     (id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ mensaje: "Foto subida con éxito" });
+    }
+  );
+};
+
+
+
+// Obtener fotos más valoradas
 exports.obtenerFotosValoradas = (req, res) => {
   const sql = `
     SELECT 
@@ -123,10 +126,12 @@ exports.obtenerFotosValoradas = (req, res) => {
       COUNT(l.id_like) AS total_likes
     FROM fotografias f
     LEFT JOIN likes l ON f.id_foto = l.id_foto
-    GROUP BY f.id_foto
+    GROUP BY 
+      f.id_foto
     ORDER BY total_likes DESC, f.fecha DESC
     LIMIT 12
   `;
+
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
@@ -135,6 +140,7 @@ exports.obtenerFotosValoradas = (req, res) => {
 
 exports.filtrarFotos = (req, res) => {
   const { categoria, usuario, titulo, orden, precio } = req.query;
+
   let baseQuery = `
     SELECT 
       f.*, 
@@ -145,20 +151,24 @@ exports.filtrarFotos = (req, res) => {
     LEFT JOIN likes l ON f.id_foto = l.id_foto
     WHERE 1=1
   `;
+
   const params = [];
 
   if (categoria) {
     baseQuery += ' AND f.id_categoria = ?';
     params.push(categoria);
   }
+
   if (usuario) {
     baseQuery += ' AND f.id_usuario = ?';
     params.push(usuario);
   }
+
   if (titulo) {
     baseQuery += ' AND f.titulo LIKE ?';
     params.push(`%${titulo}%`);
   }
+
   if (precio === 'gratis') {
     baseQuery += ' AND (f.precio IS NULL OR f.precio = 0)';
   } else if (precio === 'pago') {
@@ -166,7 +176,14 @@ exports.filtrarFotos = (req, res) => {
   }
 
   baseQuery += ' GROUP BY f.id_foto';
-  baseQuery += orden === 'likes' ? ' ORDER BY total_likes DESC' : ' ORDER BY f.fecha DESC';
+
+  if (orden === 'fecha') {
+    baseQuery += ' ORDER BY f.fecha DESC';
+  } else if (orden === 'likes') {
+    baseQuery += ' ORDER BY total_likes DESC';
+  } else {
+    baseQuery += ' ORDER BY f.fecha DESC';
+  }
 
   db.query(baseQuery, params, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -176,6 +193,7 @@ exports.filtrarFotos = (req, res) => {
 
 exports.obtenerFotoDetalle = (req, res) => {
   const { id } = req.params;
+
   const sql = `
     SELECT 
       f.id_foto,
@@ -191,9 +209,13 @@ exports.obtenerFotoDetalle = (req, res) => {
     JOIN usuarios u ON f.id_usuario = u.id_usuario
     WHERE f.id_foto = ?
   `;
+
   db.query(sql, [id], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     if (result.length === 0) return res.status(404).json({ error: "Foto no encontrada" });
     res.json(result[0]);
   });
 };
+
+
+
