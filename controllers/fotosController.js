@@ -1,7 +1,42 @@
 const db = require("../config/db.js");
 const { enviarCorreo } = require('../utils/correoUtils.js');
+const path = require('path');
+const multer = require('multer');
 
-// Eliminar foto
+// ✅ Configuración de multer (directorio válido para Render)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../uploads')); // Carpeta válida en el backend
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname); // Puedes usar un nombre único si lo deseas
+  }
+});
+
+const upload = multer({ storage });
+
+// Exportar middleware de subida
+exports.upload = upload.single('archivo');
+
+// ✅ Subida de foto
+exports.subirFoto = (req, res) => {
+  const { id_usuario } = req.usuario;
+  const { id_categoria, titulo, descargable, localizacion_nombre, precio } = req.body;
+  const url = `/galeria/${req.file.filename}`; // URL accesible desde frontend
+
+  db.query(
+    `INSERT INTO fotografias 
+     (id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ mensaje: "Foto subida con éxito" });
+    }
+  );
+};
+
+// ✅ Eliminar foto y enviar correo
 exports.eliminarFoto = (req, res) => {
   const idFoto = req.params.id;
 
@@ -10,7 +45,7 @@ exports.eliminarFoto = (req, res) => {
       f.titulo, 
       f.url, 
       u.email, 
-      u.nombre
+      u.nombre AS nombre_usuario
     FROM fotografias f
     JOIN usuarios u ON f.id_usuario = u.id_usuario
     WHERE f.id_foto = ?
@@ -48,8 +83,7 @@ exports.eliminarFoto = (req, res) => {
   });
 };
 
-
-// Obtener todas las fotos
+// ✅ Obtener todas las fotos
 exports.obtenerFotos = (req, res) => {
   db.query("SELECT * FROM fotografias", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -57,7 +91,7 @@ exports.obtenerFotos = (req, res) => {
   });
 };
 
-// Obtener foto por ID
+// ✅ Obtener foto por ID
 exports.obtenerFotoPorId = (req, res) => {
   const { id } = req.params;
   db.query(
@@ -72,45 +106,7 @@ exports.obtenerFotoPorId = (req, res) => {
   );
 };
 
-const path = require('path');
-const multer = require('multer');
-
-// Configuración de multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../enfoca2-frontend/public/galeria'));
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname); // Puedes poner un hash o timestamp si quieres evitar colisiones
-  }
-});
-
-const upload = multer({ storage });
-
-// Añade este export al final del archivo para usar en la ruta
-exports.upload = upload.single('archivo');
-
-// La lógica principal
-exports.subirFoto = (req, res) => {
-  const { id_usuario } = req.usuario;
-  const { id_categoria, titulo, descargable, localizacion_nombre, precio } = req.body;
-  const url = `/galeria/${req.file.filename}`;
-
-  db.query(
-    `INSERT INTO fotografias 
-     (id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id_usuario, id_categoria, titulo, url, descargable, localizacion_nombre, precio],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ mensaje: "Foto subida con éxito" });
-    }
-  );
-};
-
-
-
-// Obtener fotos más valoradas
+// ✅ Obtener fotos más valoradas
 exports.obtenerFotosValoradas = (req, res) => {
   const sql = `
     SELECT 
@@ -126,8 +122,7 @@ exports.obtenerFotosValoradas = (req, res) => {
       COUNT(l.id_like) AS total_likes
     FROM fotografias f
     LEFT JOIN likes l ON f.id_foto = l.id_foto
-    GROUP BY 
-      f.id_foto
+    GROUP BY f.id_foto
     ORDER BY total_likes DESC, f.fecha DESC
     LIMIT 12
   `;
@@ -138,6 +133,7 @@ exports.obtenerFotosValoradas = (req, res) => {
   });
 };
 
+// ✅ Filtrar fotos
 exports.filtrarFotos = (req, res) => {
   const { categoria, usuario, titulo, orden, precio } = req.query;
 
@@ -191,6 +187,7 @@ exports.filtrarFotos = (req, res) => {
   });
 };
 
+// ✅ Detalle de una foto
 exports.obtenerFotoDetalle = (req, res) => {
   const { id } = req.params;
 
@@ -216,6 +213,3 @@ exports.obtenerFotoDetalle = (req, res) => {
     res.json(result[0]);
   });
 };
-
-
-
