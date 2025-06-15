@@ -9,6 +9,8 @@ app.use(express.json());
 
 const puerto = process.env.PORT || 3000;
 
+app.use('/galeria', express.static(path.join(__dirname, 'uploads')));
+
 app.use('/api/auth', require('./routes/auth.js'));
 app.use('/api/fotos', require('./routes/fotos.js'));
 app.use('/api/comentarios', require('./routes/comentarios.js'));
