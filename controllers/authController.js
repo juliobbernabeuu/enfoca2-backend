@@ -31,13 +31,22 @@ exports.login = (req, res) => {
     async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
       if (results.length === 0)
-        return res.status(401).json({ error: "Incorrecto" });
+        return res.status(401).json({ error: "Credenciales incorrectas" });
 
       const usuario = results[0];
+
+      // 🔒 Verificar si está bloqueado
+      if (usuario.bloqueado_hasta && new Date(usuario.bloqueado_hasta) > new Date()) {
+        const fecha = new Date(usuario.bloqueado_hasta).toLocaleDateString('es-ES');
+        return res.status(403).json({ error: `Tu acceso está bloqueado hasta el ${fecha}` });
+      }
+
+      // ✅ Verificar contraseña
       const validPassword = await bcrypt.compare(password, usuario.password);
       if (!validPassword)
-        return res.status(401).json({ error: "Incorrecto" });
+        return res.status(401).json({ error: "Credenciales incorrectas" });
 
+      // 🎟️ Generar token
       const token = jwt.sign(
         {
           id_usuario: usuario.id_usuario,
@@ -47,10 +56,8 @@ exports.login = (req, res) => {
         process.env.JWT_SECRET,
         { expiresIn: "1h" }
       );
-      res.json({ mensaje: "Inicio de sesión exitoso", token }); // solo mensaje + token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log(decoded);
-    }
 
+      res.json({ mensaje: "Inicio de sesión exitoso", token });
+    }
   );
 };
