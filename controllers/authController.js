@@ -3,6 +3,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");      
 require("dotenv").config();                
 
+const { enviarCorreo } = require('../utils/correoUtils.js');
+
 exports.register = async (req, res) => {
   const { nombre, email, password } = req.body;
 
@@ -14,6 +16,13 @@ exports.register = async (req, res) => {
       [nombre, email, hashedPassword],
       (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
+
+        // Enviar correo de bienvenida
+        const asunto = '¡Bienvenido a Enfoca2!';
+        const mensaje = `Hola ${nombre},\n\nGracias por registrarte en Enfoca2.\n\nTu correo: ${email}\n\nYa puedes iniciar sesión y comenzar a explorar o subir tus fotos.\n\n¡Esperamos que disfrutes la experiencia!\n\nEl equipo de Enfoca2.`;
+
+        enviarCorreo(email, asunto, mensaje);
+
         res.json({ mensaje: "Usuario registrado con éxito" });
       }
     );
@@ -21,6 +30,7 @@ exports.register = async (req, res) => {
     res.status(500).json({ error: "Error en el servidor" });
   }
 };
+
 
 exports.login = (req, res) => {
   const { email, password } = req.body;
