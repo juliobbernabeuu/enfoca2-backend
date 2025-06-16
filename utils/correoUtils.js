@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 
 exports.enviarCorreo = (destinatario, asunto, mensaje) => {
   const mailOptions = {
-    from: 'Enfoca2 <tucorreo@gmail.com>',
+    from: 'Enfoca2 <juliobernabeublanco@gmail.com>',
     to: destinatario,
     subject: asunto,
     text: mensaje
