@@ -11,6 +11,8 @@ router.get('/', fotosController.obtenerFotos);
 router.get('/:id', fotosController.obtenerFotoPorId);
 router.delete('/:id', verificarToken, fotosController.eliminarFoto);
 
-
+// NUEVAS RUTAS
+router.put('/:id', verificarToken, fotosController.editarFoto); // editar foto
+router.get('/usuario/mis-fotos', verificarToken, fotosController.obtenerFotosUsuario); // fotos del usuario
 
 module.exports = router;

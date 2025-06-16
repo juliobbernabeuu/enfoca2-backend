@@ -213,3 +213,53 @@ exports.obtenerFotoDetalle = (req, res) => {
     res.json(result[0]);
   });
 };
+// Actualizar foto (sin cambiar la imagen)
+exports.editarFoto = (req, res) => {
+  const idFoto = req.params.id;
+  const { id_usuario } = req.usuario; // Aseguramos que el usuario sea el dueño
+  const { id_categoria, titulo, descargable, localizacion_nombre, precio } = req.body;
+
+  // Verificamos que la foto pertenece al usuario
+  db.query(
+    "SELECT id_usuario FROM fotografias WHERE id_foto = ?",
+    [idFoto],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (result.length === 0) return res.status(404).json({ error: "Foto no encontrada" });
+
+      if (result[0].id_usuario !== id_usuario) {
+        return res.status(403).json({ error: "No autorizado para editar esta foto" });
+      }
+
+      // Actualizar datos
+      db.query(
+        `UPDATE fotografias SET
+          id_categoria = ?,
+          titulo = ?,
+          descargable = ?,
+          localizacion_nombre = ?,
+          precio = ?
+        WHERE id_foto = ?`,
+        [id_categoria, titulo, descargable, localizacion_nombre, precio, idFoto],
+        (err2) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+          res.json({ mensaje: "Foto actualizada correctamente" });
+        }
+      );
+    }
+  );
+};
+
+exports.obtenerFotosUsuario = (req, res) => {
+  const { id_usuario } = req.usuario; // del token
+
+  db.query(
+    "SELECT * FROM fotografias WHERE id_usuario = ?",
+    [id_usuario],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    }
+  );
+};
+
